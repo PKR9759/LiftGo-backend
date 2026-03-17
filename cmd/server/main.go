@@ -17,6 +17,7 @@ import (
 	"github.com/PKR9759/LiftGo-backend/internal/db"
 	"github.com/PKR9759/LiftGo-backend/internal/user"
 	"github.com/PKR9759/LiftGo-backend/internal/ride"
+	"github.com/PKR9759/LiftGo-backend/internal/booking"
 )
 
 func main() {
@@ -51,6 +52,11 @@ func main() {
 	rideRepo    := ride.NewRepository(pool)
 	rideService := ride.NewService(rideRepo)
 	rideHandler := ride.NewHandler(rideService)
+
+	// booking
+	bookingRepo    := booking.NewRepository(pool)
+	bookingService := booking.NewService(bookingRepo)
+	bookingHandler := booking.NewHandler(bookingService)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -99,6 +105,16 @@ func main() {
 		})
 	})
 
+	// bookings (all protected)
+	r.Route("/api/bookings", func(r chi.Router) {
+		r.Use(auth.RequireAuth)
+		r.Post("/",              bookingHandler.Create)
+		r.Get("/mine",           bookingHandler.GetMine)
+		r.Get("/incoming",       bookingHandler.GetIncoming)
+		r.Get("/{id}",           bookingHandler.GetByID)
+		r.Put("/{id}/confirm",   bookingHandler.Confirm)
+		r.Put("/{id}/cancel",    bookingHandler.Cancel)
+	})
 
 	port := os.Getenv("PORT")
 	if port == "" {
