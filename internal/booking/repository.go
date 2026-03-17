@@ -84,17 +84,19 @@ func (r *Repository) GetByID(ctx context.Context, id string) (*Booking, error) {
 	b := &Booking{}
 	err := r.db.QueryRow(ctx,
 		`SELECT b.id, b.ride_id, b.rider_id, ur.name,
-		        ri.origin_city, ri.destination_city, ri.departure_at,
-		        ud.name, b.seats, b.status, b.total_price, b.created_at
-		 FROM bookings b
-		 JOIN users  ur ON ur.id = b.rider_id
-		 JOIN rides  ri ON ri.id = b.ride_id
-		 JOIN users  ud ON ud.id = ri.driver_id
-		 WHERE b.id = $1`, id,
+        ri.driver_id, ud.name,
+        ri.origin_city, ri.destination_city, ri.departure_at,
+        b.seats, b.status, b.total_price, b.created_at
+ 		FROM bookings b
+ 		JOIN users  ur ON ur.id = b.rider_id
+ 		JOIN rides  ri ON ri.id = b.ride_id
+ 		JOIN users  ud ON ud.id = ri.driver_id
+ 		WHERE b.id = $1` id,
 	).Scan(
 		&b.ID, &b.RideID, &b.RiderID, &b.RiderName,
-		&b.OriginCity, &b.DestinationCity, &b.DepartureAt,
-		&b.DriverName, &b.Seats, &b.Status, &b.TotalPrice, &b.CreatedAt,
+ 		&b.DriverID, &b.DriverName,             
+  		&b.OriginCity, &b.DestinationCity, &b.DepartureAt,
+  		&b.Seats, &b.Status, &b.TotalPrice, &b.CreatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -194,19 +196,20 @@ func (r *Repository) UpdateStatus(ctx context.Context, id, actorID, newStatus, r
 func scanBookings(rows interface {
 	Next() bool
 	Scan(...any) error
-}) ([]*Booking, error) {
+  }) ([]*Booking, error) {
 	var bookings []*Booking
 	for rows.Next() {
-		b := &Booking{}
-		err := rows.Scan(
-			&b.ID, &b.RideID, &b.RiderID, &b.RiderName,
-			&b.OriginCity, &b.DestinationCity, &b.DepartureAt,
-			&b.DriverName, &b.Seats, &b.Status, &b.TotalPrice, &b.CreatedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-		bookings = append(bookings, b)
+	  b := &Booking{}
+	  err := rows.Scan(
+		&b.ID, &b.RideID, &b.RiderID, &b.RiderName,
+		&b.DriverID, &b.DriverName,            // ← add DriverID
+		&b.OriginCity, &b.DestinationCity, &b.DepartureAt,
+		&b.Seats, &b.Status, &b.TotalPrice, &b.CreatedAt,
+	  )
+	  if err != nil {
+		return nil, err
+	  }
+	  bookings = append(bookings, b)
 	}
 	return bookings, nil
-}
+  }
