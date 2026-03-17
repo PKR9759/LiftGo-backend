@@ -15,6 +15,7 @@ import (
 
 	"github.com/PKR9759/LiftGo-backend/internal/auth"
 	"github.com/PKR9759/LiftGo-backend/internal/db"
+	"github.com/PKR9759/LiftGo-backend/internal/user"
 )
 
 func main() {
@@ -36,9 +37,14 @@ func main() {
 	}
 	log.Println("migrations complete")
 
-	// init auth
+	// auth
 	authService := auth.NewService(pool)
 	authHandler := auth.NewHandler(authService)
+
+	//user
+	userRepo := user.NewRepository(pool)
+	userService := user.NewService(userRepo)
+	userHandler := user.NewHandler(userService)
 
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
@@ -59,6 +65,16 @@ func main() {
 	r.Route("/api/auth", func(r chi.Router) {// r inside callback func is sub router of main router, so all routes defined here will be prefixed with /api/auth , like api/auth/register and api/auth/login
 		r.Post("/register", authHandler.Register)
 		r.Post("/login", authHandler.Login)
+	})
+
+	// protected user routes
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireAuth)
+
+		r.Route("/api/users", func(r chi.Router) {
+			r.Get("/me", userHandler.GetMe)
+			r.Put("/me", userHandler.UpdateMe)
+		})
 	})
 
 	port := os.Getenv("PORT")

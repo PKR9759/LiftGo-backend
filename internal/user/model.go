@@ -14,3 +14,10 @@ type User struct {
 	Role         string    `json:"role"`
 	CreatedAt    time.Time `json:"created_at"`
 }
+
+type UpdateRequest struct {
+	Name      string `json:"name"`
+	Phone     string `json:"phone"`
+	AvatarURL string `json:"avatar_url"`
+	Role      string `json:"role"`
+}
