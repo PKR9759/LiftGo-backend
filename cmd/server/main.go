@@ -16,6 +16,7 @@ import (
 	"github.com/PKR9759/LiftGo-backend/internal/auth"
 	"github.com/PKR9759/LiftGo-backend/internal/db"
 	"github.com/PKR9759/LiftGo-backend/internal/user"
+	"github.com/PKR9759/LiftGo-backend/internal/ride"
 )
 
 func main() {
@@ -46,6 +47,11 @@ func main() {
 	userService := user.NewService(userRepo)
 	userHandler := user.NewHandler(userService)
 
+	//ride
+	rideRepo    := ride.NewRepository(pool)
+	rideService := ride.NewService(rideRepo)
+	rideHandler := ride.NewHandler(rideService)
+
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -74,6 +80,27 @@ func main() {
 		r.Route("/api/users", func(r chi.Router) {
 			r.Get("/me", userHandler.GetMe)
 			r.Put("/me", userHandler.UpdateMe)
+		})
+	})
+
+	// public ride routes (search + detail need no auth)
+	r.Get("/api/rides",     rideHandler.Search)
+	r.Get("/api/rides/{id}", rideHandler.GetByID)
+
+	// protected ride routes
+	r.Group(func(r chi.Router) {
+		r.Use(auth.RequireAuth)
+
+		r.Route("/api/users", func(r chi.Router) {
+			r.Get("/me", userHandler.GetMe)
+			r.Put("/me", userHandler.UpdateMe)
+		})
+
+		r.Route("/api/rides", func(r chi.Router) {
+			r.Post("/",        rideHandler.Create)
+			r.Get("/mine",     rideHandler.GetMine)
+			r.Put("/{id}",     rideHandler.Update)
+			r.Delete("/{id}",  rideHandler.Cancel)
 		})
 	})
 
