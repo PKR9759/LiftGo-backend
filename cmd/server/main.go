@@ -83,26 +83,22 @@ func main() {
 		})
 	})
 
-	// public ride routes (search + detail need no auth)
-	r.Get("/api/rides",     rideHandler.Search)
-	r.Get("/api/rides/{id}", rideHandler.GetByID)
+	// rides (mixed — some public, some protected)
+	r.Route("/api/rides", func(r chi.Router) {
+		// public
+		r.Get("/",     rideHandler.Search)
+		r.Get("/{id}", rideHandler.GetByID)
 
-	// protected ride routes
-	r.Group(func(r chi.Router) {
-		r.Use(auth.RequireAuth)
-
-		r.Route("/api/users", func(r chi.Router) {
-			r.Get("/me", userHandler.GetMe)
-			r.Put("/me", userHandler.UpdateMe)
-		})
-
-		r.Route("/api/rides", func(r chi.Router) {
-			r.Post("/",        rideHandler.Create)
-			r.Get("/mine",     rideHandler.GetMine)
-			r.Put("/{id}",     rideHandler.Update)
-			r.Delete("/{id}",  rideHandler.Cancel)
+		// protected
+		r.Group(func(r chi.Router) {
+			r.Use(auth.RequireAuth)
+			r.Post("/",       rideHandler.Create)
+			r.Get("/mine",    rideHandler.GetMine)
+			r.Put("/{id}",    rideHandler.Update)
+			r.Delete("/{id}", rideHandler.Cancel)
 		})
 	})
+
 
 	port := os.Getenv("PORT")
 	if port == "" {
