@@ -14,10 +14,11 @@ import (
 	"github.com/joho/godotenv"
 
 	"github.com/PKR9759/LiftGo-backend/internal/auth"
-	"github.com/PKR9759/LiftGo-backend/internal/db"
-	"github.com/PKR9759/LiftGo-backend/internal/user"
-	"github.com/PKR9759/LiftGo-backend/internal/ride"
 	"github.com/PKR9759/LiftGo-backend/internal/booking"
+	"github.com/PKR9759/LiftGo-backend/internal/db"
+	"github.com/PKR9759/LiftGo-backend/internal/review"
+	"github.com/PKR9759/LiftGo-backend/internal/ride"
+	"github.com/PKR9759/LiftGo-backend/internal/user"
 )
 
 func main() {
@@ -39,25 +40,26 @@ func main() {
 	}
 	log.Println("migrations complete")
 
-	// auth
-	authService := auth.NewService(pool)
-	authHandler := auth.NewHandler(authService)
+	// ── handlers ────────────────────────────────────────────
+	authHandler := auth.NewHandler(auth.NewService(pool))
 
-	//user
-	userRepo := user.NewRepository(pool)
-	userService := user.NewService(userRepo)
-	userHandler := user.NewHandler(userService)
+	userHandler := user.NewHandler(
+		user.NewService(user.NewRepository(pool)),
+	)
 
-	//ride
-	rideRepo    := ride.NewRepository(pool)
-	rideService := ride.NewService(rideRepo)
-	rideHandler := ride.NewHandler(rideService)
+	rideHandler := ride.NewHandler(
+		ride.NewService(ride.NewRepository(pool)),
+	)
 
-	// booking
-	bookingRepo    := booking.NewRepository(pool)
-	bookingService := booking.NewService(bookingRepo)
-	bookingHandler := booking.NewHandler(bookingService)
+	bookingHandler := booking.NewHandler(
+		booking.NewService(booking.NewRepository(pool)),
+	)
 
+	reviewHandler := review.NewHandler(
+		review.NewService(review.NewRepository(pool)),
+	)
+
+	// ── router ───────────────────────────────────────────────
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
@@ -69,27 +71,31 @@ func main() {
 		AllowCredentials: true,
 	}))
 
+	// health
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("ok"))
 	})
 
-	// auth routes
-	r.Route("/api/auth", func(r chi.Router) {// r inside callback func is sub router of main router, so all routes defined here will be prefixed with /api/auth , like api/auth/register and api/auth/login
+	// ── auth (public) ────────────────────────────────────────
+	r.Route("/api/auth", func(r chi.Router) {
 		r.Post("/register", authHandler.Register)
-		r.Post("/login", authHandler.Login)
+		r.Post("/login",    authHandler.Login)
 	})
 
-	// protected user routes
-	r.Group(func(r chi.Router) {
-		r.Use(auth.RequireAuth)
+	// ── users ────────────────────────────────────────────────
+	r.Route("/api/users", func(r chi.Router) {
+		// public
+		r.Get("/{id}/reviews", reviewHandler.GetByReviewee)
 
-		r.Route("/api/users", func(r chi.Router) {
+		// protected
+		r.Group(func(r chi.Router) {
+			r.Use(auth.RequireAuth)
 			r.Get("/me", userHandler.GetMe)
 			r.Put("/me", userHandler.UpdateMe)
 		})
 	})
 
-	// rides (mixed — some public, some protected)
+	// ── rides ────────────────────────────────────────────────
 	r.Route("/api/rides", func(r chi.Router) {
 		// public
 		r.Get("/",     rideHandler.Search)
@@ -105,17 +111,24 @@ func main() {
 		})
 	})
 
-	// bookings (all protected)
+	// ── bookings (all protected) ─────────────────────────────
 	r.Route("/api/bookings", func(r chi.Router) {
 		r.Use(auth.RequireAuth)
-		r.Post("/",              bookingHandler.Create)
-		r.Get("/mine",           bookingHandler.GetMine)
-		r.Get("/incoming",       bookingHandler.GetIncoming)
-		r.Get("/{id}",           bookingHandler.GetByID)
-		r.Put("/{id}/confirm",   bookingHandler.Confirm)
-		r.Put("/{id}/cancel",    bookingHandler.Cancel)
+		r.Post("/",            bookingHandler.Create)
+		r.Get("/mine",         bookingHandler.GetMine)
+		r.Get("/incoming",     bookingHandler.GetIncoming)
+		r.Get("/{id}",         bookingHandler.GetByID)
+		r.Put("/{id}/confirm", bookingHandler.Confirm)
+		r.Put("/{id}/cancel",  bookingHandler.Cancel)
 	})
 
+	// ── reviews (all protected) ──────────────────────────────
+	r.Route("/api/reviews", func(r chi.Router) {
+		r.Use(auth.RequireAuth)
+		r.Post("/", reviewHandler.Create)
+	})
+
+	// ── start ────────────────────────────────────────────────
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
